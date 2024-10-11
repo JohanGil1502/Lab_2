@@ -1,17 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
-const gm = require('gm').subClass({ imageMagick: true });  // Usar GraphicsMagick
-
+const sharp = require('sharp'); 
 require('dotenv').config({ path: ".env" });
 
-// Almacenamiento en memoria en lugar de disco
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const app = express();
 
-const ip = process.env.IP;
 const port = process.env.PORT || 5000;
 
 app.use(cors());
@@ -23,21 +20,22 @@ app.post('/addWatermark', upload.single('image'), async (req, res) => {
         const watermarkText = req.body.text;
         const imageBuffer = req.file.buffer;
 
-        // Usar gm para cargar la imagen y agregar la marca de agua
-        gm(imageBuffer)
-            .fontSize(40)  // Ajustar el tamaño de la fuente
-            .fill('rgba(255,255,255,0.5)')  // Color blanco semitransparente
-            .drawText(10, 50, watermarkText)  // Ajustar la posición del texto
-            .toBuffer('PNG', (err, buffer) => {
-                if (err) {
-                    console.log("Error al añadir la marca de agua: ", err);
-                    return res.status(500).send({ error: 'Error al procesar la imagen' });
-                }
+       
+        const image = sharp(imageBuffer);
+        const { width, height } = await image.metadata();
 
-                console.log("Se ha añadido una marca de agua a la imagen.");
-                res.set('Content-Type', 'image/png');
-                res.send(buffer);  // Enviar la imagen con la marca de agua
-            });
+        const watermark = Buffer.from(
+            `<svg width="${width}" height="${height}">
+                <text x="10" y="50" font-size="50" fill="white">${watermarkText}</text>
+            </svg>`
+        );
+        const modifiedBuffer = await image
+            .composite([{ input: watermark, blend: 'overlay' }])
+            .png()
+            .toBuffer();
+
+        res.set('Content-Type', 'image/png');
+        res.send(modifiedBuffer); 
     } catch (error) {
         console.log("Error al añadir la marca de agua:", error.message);
         res.status(500).send({ error: 'Error al procesar la imagen' });
