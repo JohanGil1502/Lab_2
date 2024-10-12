@@ -1,5 +1,8 @@
 const { createApp } = Vue;
 
+const port = "4000";
+const ip = "localhost";
+
 createApp({
     data() {
         return {
@@ -25,7 +28,7 @@ createApp({
             };
 
             try {
-                const response = await fetch(`http://localhost:5000/addWatermark`, requestOptions);
+                const response = await fetch(`http://localhost:${port}/addWatermark`, requestOptions);
                 
                 if (!response.ok) {
                     throw new Error("Error al recibir la imagen procesada");
