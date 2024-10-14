@@ -2,4 +2,5 @@
 /server/node_modules
 /Middleware/loadBalancer/node_modules
 /Middleware/server_registry/node_modules
+/Middleware/monitor/node_modules
 /server copy/node_modules
