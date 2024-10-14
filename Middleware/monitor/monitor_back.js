@@ -1,3 +1,5 @@
+const express = require('express');
+const cors = require('cors');
 const { Client } = require('ssh2');
 const conn = new Client();
 let servers = [];
@@ -7,34 +9,46 @@ const portMonitor = process.env.PORT_MONITOR;
 const ipComputer1= process.env.IP_COMPUTER1;
 const ipComputer2= process.env.IP_COMPUTER2;
 const ipRegisterServer= process.env.IP_REGISTER_SERVER;
+const portRegisterServer= process.env.PORT_REGISTER_SERVER;
 let infoComputerSelected;
 let actualPort = 5000;
 
-setInterval(async () => {
-    // console.log("revisando servidores caidos")
-    for (let server of servers) {
-        if (server.failed) {
-            try {
-                const response = await fetch(`http://${server.ipServer}:${server.portServer}/healthCheck`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
+const app = express();
 
-                const data = await response.json()
-                if (data.answer === 'OK') {
-                    console.log(`sevidor ${server.portServer} disponible`);
-                    server.failed = false;
-                }
-            } catch (error) {
-                console.log(`servidor ${server.portServer} caido`)
-            }
-        }
-    }
-}, 1000);
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-chooseComputer();
+app.get('/deploy', async (req, res) => {
+    console.log("Creando nueva instancia");
+    await chooseComputer();
+    res.status(200).send({ answer: 'OK' }); 
+});
+
+//validar cuando no hay servidores en el arreglo
+// setInterval(async () => {
+//     for (let server of servers) {
+//         if (server.failed) {
+//             try {
+//                 const response = await fetch(`http://${server.ipServer}:${server.portServer}/healthCheck`, {
+//                     method: 'GET',
+//                     headers: {
+//                         'Content-Type': 'application/json'
+//                     }
+//                 })
+
+//                 const data = await response.json()
+//                 if (data.answer === 'OK') {
+//                     console.log(`sevidor ${server.portServer} disponible`);
+//                     server.failed = false;
+//                 }
+//             } catch (error) {
+//                 console.log(`servidor ${server.portServer} caido`)
+//             }
+//         }
+//     }
+// }, 1000);
+
 
 function chooseComputer(){
     selectComputer();
@@ -47,16 +61,17 @@ function selectComputer(){
     let ipComputerSelected;
     let passwordSelected;
     let serverName;
+    //toca cambiar a 'server' con contraseña 211100
    if (number == 1){
         ipComputerSelected = ipComputer1;
-        passwordSelected = '211100'
-        serverName = 'server'
+        passwordSelected = 'sebas1502'
+        serverName = 'administrador'
     }else{
         ipComputerSelected = ipComputer2;
         passwordSelected = 'sebas1502'
         serverName = 'administrador'
     }
-    command = `echo "${passwordSelected}" | sudo -S docker run -e PORT=${actualPort} -e IP=${ipComputerSelected} -e IP_CONNECT=${ipRegisterServer} --name server${actualPort-5000} -p ${actualPort}:${actualPort} -d server69`;
+    command = `echo "${passwordSelected}" | sudo -S docker run -e PORT=${actualPort} -e IP=${ipComputerSelected} -e IP_REGISTRY=${ipRegisterServer} -e PORT_REGISTRY=${portRegisterServer} --name server${actualPort-5000} -p ${actualPort}:${actualPort} -d server69`;
     actualPort++;
     infoComputerSelected = {command: command,ipComputerSelected:ipComputerSelected,passwordSelected:passwordSelected,name:serverName};
     console.log(infoComputerSelected)
@@ -85,3 +100,6 @@ function connect(){
     });
 }
 
+app.listen(portMonitor, () => {
+    console.log(`Servidor escuchando en el puerto: ${portMonitor}`);
+});
