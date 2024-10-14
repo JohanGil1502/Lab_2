@@ -9,28 +9,38 @@ const ipComputer2= process.env.IP_COMPUTER2;
 const ipRegisterServer= process.env.IP_REGISTER_SERVER;
 let infoComputerSelected;
 let actualPort = 5000;
+const responseTime=1000
+
 
 setInterval(async () => {
-    // console.log("revisando servidores caidos")
     for (let server of servers) {
-        if (server.failed) {
+        
             try {
+                const startTime = Date.now()
                 const response = await fetch(`http://${server.ipServer}:${server.portServer}/healthCheck`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
                     }
                 })
+                const endTime = Date.now();
+                const responseTimeServer = endTime - startTime;
 
                 const data = await response.json()
                 if (data.answer === 'OK') {
                     console.log(`sevidor ${server.portServer} disponible`);
-                    server.failed = false;
+                    console.log(`Tiempo de respuesta: ${responseTime}ms`)
+                    if (responseTimeServer>responseTime) {
+                        console.log(`el tiempo de respuesta del servidor ${server.portServer} es muy alto`)
+                        chooseComputer();
+                    }else{
+                        server.failed = false;
+                    }
                 }
             } catch (error) {
                 console.log(`servidor ${server.portServer} caido`)
+                chooseComputer();
             }
-        }
     }
 }, 1000);
 
