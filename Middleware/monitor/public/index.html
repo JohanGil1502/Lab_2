@@ -3,14 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <script src="/socket.io/socket.io.js"></script>
-</head>
-<body id="app">
-    <button @click="deployServer()">lanzar instancia</button>
-    <label>{{letter}}</label>
+    <title>Monitoreo de servidores</title>
+    <link rel="stylesheet" href="styles.css">
     
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="monitor_front.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <header>
+                <h1>Monitoreo de servidores</h1>
+                <div class="status-icon" :class="overallStatusColor"></div>
+            </header>
+            <div class="status-board">
+                <h3>Estado en vivo</h3>
+                <div class="status-period">
+                    <button class="selected">7d</button>
+                    <button>30d</button>
+                    <button>90d</button>
+                </div>
+                
+                <div class="server-status">
+                    <div v-for="server in servers" :key="server.name" class="server">
+                        <p>{{ server.name }}</p>
+                        <div class="uptime-bar">
+                            <div v-for="(state, index) in server.status" :key="index" 
+                                 class="bar" :class="stateColor(state)">
+                            </div>
+                        </div>
+                        <p class="uptime">{{ server.uptime }}%</p>
+                    </div>
+                </div>
+            </div>
+            <div class="button-container">
+                <button class="launch-button">Lanzar nueva instancia</button>
+            </div>
+        </div>
+    </div>
 </body>
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script src="monitor_front.js" defer></script> 
 </html>
