@@ -6,6 +6,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use(express.static('public'))
 
 var page = require('http').Server(app);
@@ -30,11 +31,14 @@ io.on('connection', function (socket) {
 
 app.get('/deploy', async (req, res) => {
   console.log("Creando nueva instancia");
+
   chooseComputer();
+  actualPort++;
+
   res.status(200).send({ answer: 'OK' });
 });
 
-const responseTime = 10000
+const responseTime = 2000
 
 setInterval(async () => {
   if (servers.length > 0) {
@@ -58,8 +62,11 @@ setInterval(async () => {
           if (responseTimeServer > responseTime) {
             console.log(`el tiempo de respuesta del servidor ${server.portServer} es muy alto`)
             let serverToAdd = { name: server.name, status: 'yellow' };
-            io.emit('messages', serverToAdd)
+            io.emit('messages', serverToAdd);
+
             chooseComputer();
+            actualPort++;
+
           } else {
             let serverToAdd = { name: server.name, status: 'green' };
             io.emit('messages', serverToAdd)
@@ -71,6 +78,8 @@ setInterval(async () => {
       } catch (error) {
         if (!server.failed) {
           chooseComputer();
+          actualPort++;
+
         }
         server.failed = true;
         let serverToAdd = { name: server.name, status: 'red' };
@@ -80,7 +89,7 @@ setInterval(async () => {
       }
     }
   }
-}, 500);
+}, 1000);
 
 
 function chooseComputer() {
@@ -108,7 +117,6 @@ function selectComputer() {
   nameToAdd = `server${actualPort - 5000}`
   ipToAdd = ipComputerSelected;
   portToAdd = actualPort;
-  actualPort++;
   infoComputerSelected = { command: command, ipComputerSelected: ipComputerSelected, passwordSelected: passwordSelected, name: serverName };
   console.log(infoComputerSelected)
 }
@@ -124,8 +132,8 @@ function connect() {
         conn.end(); // Finaliza la conexión SSH
       }).on('data', (data) => {
         console.log('Salida del comando:\n' + data);
-        io.emit('chaosMessage','');
-        servers.push({ ipServer: ipToAdd, portServer: portToAdd, failed: false, name: nameToAdd, identifier: data })
+        io.emit('chaosMessage', '');
+        servers.push({ ipServer: ipToAdd, portServer: portToAdd, failed: false, name: nameToAdd, identifier: data, isSlow: false })
         console.log({ ipServer: ipToAdd, portServer: portToAdd, name: nameToAdd })
       }).stderr.on('data', (data) => {
         console.error('Error del comando:\n' + data);
@@ -139,25 +147,21 @@ function connect() {
   });
 }
 
-async function stopServer(){
+async function stopServer() {
   const serversToFall = servers.filter(server => server.ipServer === infoComputerSelected.ipComputerSelected && !server.failed);
-  if (serversToFall.length>0) {
-    io.emit('chaosMessage','');
+  if (serversToFall.length > 0) {
     let positionToFall = getRandomInt(0, serversToFall.length);
     console.log(positionToFall);
     let serverIdentifier = serversToFall[positionToFall].identifier;
     let serverName = serversToFall[positionToFall].name;
     command = `echo "${infoComputerSelected.passwordSelected}" | sudo -S docker stop ${serverIdentifier}`;
-    console.log(`caeré el serviidor ${serverName} en 5 segundos`)
-    
+    console.log(`caeré el servidor ${serverName} en 5 segundos`)
+
     for (let i = 5; i > -1; i--) {
       io.emit('chaosMessage', `Se caerá el servidor ${serverName} en ${i} segundos`)
       await wait(1000);
-      if (i == 0) {
-        io.emit('chaosMessage',`Se ha caido el servidor ${serverName}`)
-      }
     }
-    
+
     const conn = new Client();
     conn.on('ready', () => {
       console.log('Conexión SSH establecida');
@@ -168,6 +172,7 @@ async function stopServer(){
           conn.end(); // Finaliza la conexión SSH
         }).on('data', (data) => {
           console.log('Salida del comando:\n' + data);
+          io.emit('chaosMessage', `Se ha caido el servidor ${serverName}`)
         }).stderr.on('data', (data) => {
           console.error('Error del comando:\n' + data);
         });
@@ -178,9 +183,9 @@ async function stopServer(){
       username: infoComputerSelected.name,
       password: infoComputerSelected.passwordSelected
     });
-  }else{
+  } else {
     console.log('no hay servidores para caer');
-    io.emit('chaosMessage','no hay servidores para caer');
+    io.emit('chaosMessage', 'no hay servidores para caer');
 
   }
 }
@@ -189,14 +194,13 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
 function getRandomInt(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function chaos_ingeniery(){
+function chaos_ingeniery() {
   selectComputer();
   stopServer();
 }
