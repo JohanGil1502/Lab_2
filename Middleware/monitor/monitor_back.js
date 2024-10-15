@@ -70,7 +70,7 @@ setInterval(async () => {
           } else {
             let serverToAdd = { name: server.name, status: 'green' };
             io.emit('messages', serverToAdd)
-            console.log('messages', serverToAdd);
+            // console.log('messages', serverToAdd);
             server.failed = false;
           }
 
@@ -106,8 +106,8 @@ function selectComputer() {
   //toca cambiar a 'server' con contraseña 211100
   if (number == 1) {
     ipComputerSelected = ipComputer1;
-    passwordSelected = 'sebas1502'
-    serverName = 'administrador'
+    passwordSelected = '211100'
+    serverName = 'server'
   } else {
     ipComputerSelected = ipComputer2;
     passwordSelected = 'sebas1502'
