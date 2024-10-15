@@ -2,18 +2,9 @@ const app = new Vue({
     el: '#app',
     data() {
         return {
+            chaosMessage: '',
             overallStatusColor: 'green',
             servers: [
-                {
-                    name: 'Server 1',
-                    status: ['green', 'green', 'yellow', 'red', 'green', 'green'],
-                    uptime: 99.96
-                },
-                {
-                    name: 'Server 2',
-                    status: ['green', 'green', 'green', 'yellow', 'green'],
-                    uptime: 99.99
-                }
             ],
             socket: null
         };
@@ -37,11 +28,25 @@ const app = new Vue({
             } else {
                 console.log('no fue posible desplegar el servidor');
             }
+        },
+        async chaosIngeniery() {
+            const response = await fetch(`http://localhost:7000/chaosIngeniery`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+    
+            const data = await response.json();
+            
+            if (data.answer === 'OK') {
+                console.log('servidor caido');
+            } else {
+                console.log('no fue posible caer el servidor');
+            }
         }
     },
     mounted() {
         this.socket = io.connect('http://localhost:7000', { 'forceNew': true });
-        
+        console.log('linea despues de al parecer conectar')        
         this.socket.on('connect', () => {
             console.log('Conectado al servidor de WebSocket');
         });
@@ -50,9 +55,30 @@ const app = new Vue({
             console.error('Error de conexión:', err);
         });
 
-        this.socket.on('messages', (data) => {
+        this.socket.on('chaosMessage', (data) => {
             console.log(data);
-            // Aquí puedes actualizar el estado de tus servidores según el mensaje recibido
+            this.chaosMessage = data;
+        });
+
+        this.socket.on('messages', (data) => {
+            let server = this.servers.find(server => server.name === data.name);
+            if (server) {
+                if (server.status.length == 30) {
+                    server.status.shift();
+                    server.status.push(data.status)
+                }else{
+                    server.status.push(data.status)
+                }
+            }else{
+                this.servers.push(
+                    {
+                        name: data.name,
+                        status: [data.status],
+                        uptime: 99.99
+                    }
+                )
+            }
+            console.log(data);
         });
     }
 });

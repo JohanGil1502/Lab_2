@@ -20,45 +20,67 @@ const portRegisterServer = process.env.PORT_REGISTER_SERVER;
 let infoComputerSelected;
 let actualPort = 5000;
 let servers = [];
+let nameToAdd;
 let ipToAdd;
 let portToAdd;
 
-io.on('connection', function(socket) {
+io.on('connection', function (socket) {
   console.log('Alguien se ha conectado con Sockets');
 });
 
 app.get('/deploy', async (req, res) => {
   console.log("Creando nueva instancia");
-  await chooseComputer();
+  chooseComputer();
   res.status(200).send({ answer: 'OK' });
 });
+
+const responseTime = 10000
 
 setInterval(async () => {
   if (servers.length > 0) {
     for (let server of servers) {
       try {
+        const startTime = Date.now()
         const response = await fetch(`http://${server.ipServer}:${server.portServer}/healthCheck`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
           }
         })
-        
+        const endTime = Date.now();
+        const responseTimeServer = endTime - startTime;
+
         const data = await response.json()
         if (data.answer === 'OK') {
           console.log(`servidor ${server.portServer} disponible`);
-          io.emit('messages', 1)
-          server.failed = false;
+          console.log(`Tiempo de respuesta: ${responseTimeServer}ms`)
+
+          if (responseTimeServer > responseTime) {
+            console.log(`el tiempo de respuesta del servidor ${server.portServer} es muy alto`)
+            let serverToAdd = { name: server.name, status: 'yellow' };
+            io.emit('messages', serverToAdd)
+            chooseComputer();
+          } else {
+            let serverToAdd = { name: server.name, status: 'green' };
+            io.emit('messages', serverToAdd)
+            console.log('messages', serverToAdd);
+            server.failed = false;
+          }
+
         }
       } catch (error) {
-        console.log(error)
-        io.emit('messages', 0)
+        if (!server.failed) {
+          chooseComputer();
+        }
+        server.failed = true;
+        let serverToAdd = { name: server.name, status: 'red' };
+        io.emit('messages', serverToAdd)
         console.log(`servidor ${server.portServer} caido`)
 
       }
     }
   }
-}, 1000);
+}, 500);
 
 
 function chooseComputer() {
@@ -83,6 +105,7 @@ function selectComputer() {
     serverName = 'administrador'
   }
   command = `echo "${passwordSelected}" | sudo -S docker run -e PORT=${actualPort} -e IP=${ipComputerSelected} -e IP_REGISTRY=${ipRegisterServer} -e PORT_REGISTRY=${portRegisterServer} --name server${actualPort - 5000} -p ${actualPort}:${actualPort} -d server69`;
+  nameToAdd = `server${actualPort - 5000}`
   ipToAdd = ipComputerSelected;
   portToAdd = actualPort;
   actualPort++;
@@ -101,8 +124,9 @@ function connect() {
         conn.end(); // Finaliza la conexión SSH
       }).on('data', (data) => {
         console.log('Salida del comando:\n' + data);
-        servers.push({ ipServer: ipToAdd, portServer: portToAdd, failed: false})
-        console.log({ ipServer: ipToAdd, portServer: portToAdd })
+        io.emit('chaosMessage','');
+        servers.push({ ipServer: ipToAdd, portServer: portToAdd, failed: false, name: nameToAdd, identifier: data })
+        console.log({ ipServer: ipToAdd, portServer: portToAdd, name: nameToAdd })
       }).stderr.on('data', (data) => {
         console.error('Error del comando:\n' + data);
       });
@@ -115,6 +139,74 @@ function connect() {
   });
 }
 
-page.listen(portMonitor, function(){
+async function stopServer(){
+  const serversToFall = servers.filter(server => server.ipServer === infoComputerSelected.ipComputerSelected && !server.failed);
+  if (serversToFall.length>0) {
+    io.emit('chaosMessage','');
+    let positionToFall = getRandomInt(0, serversToFall.length);
+    console.log(positionToFall);
+    let serverIdentifier = serversToFall[positionToFall].identifier;
+    let serverName = serversToFall[positionToFall].name;
+    command = `echo "${infoComputerSelected.passwordSelected}" | sudo -S docker stop ${serverIdentifier}`;
+    console.log(`caeré el serviidor ${serverName} en 5 segundos`)
+    
+    for (let i = 5; i > -1; i--) {
+      io.emit('chaosMessage', `Se caerá el servidor ${serverName} en ${i} segundos`)
+      await wait(1000);
+      if (i == 0) {
+        io.emit('chaosMessage',`Se ha caido el servidor ${serverName}`)
+      }
+    }
+    
+    const conn = new Client();
+    conn.on('ready', () => {
+      console.log('Conexión SSH establecida');
+      conn.exec(command, (err, stream) => {
+        if (err) throw err;
+        stream.on('close', (code, signal) => {
+          console.log('Comando finalizado con código:', code);
+          conn.end(); // Finaliza la conexión SSH
+        }).on('data', (data) => {
+          console.log('Salida del comando:\n' + data);
+        }).stderr.on('data', (data) => {
+          console.error('Error del comando:\n' + data);
+        });
+      });
+    }).connect({
+      host: infoComputerSelected.ipComputerSelected,
+      port: 22, // Puerto por defecto de SSH
+      username: infoComputerSelected.name,
+      password: infoComputerSelected.passwordSelected
+    });
+  }else{
+    console.log('no hay servidores para caer');
+    io.emit('chaosMessage','no hay servidores para caer');
+
+  }
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function chaos_ingeniery(){
+  selectComputer();
+  stopServer();
+}
+
+app.get('/chaosIngeniery', async (req, res) => {
+  chaos_ingeniery();
+  res.status(200).send({ answer: 'OK' });
+});
+
+
+page.listen(portMonitor, function () {
   console.log(`servidor corriendo en http://localhost:${portMonitor}`)
 });
