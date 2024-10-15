@@ -8,13 +8,17 @@ createApp({
         return {
             text: "",  
             image: null,  
-            imageWithWaterMark: ""  
+            imageWithWaterMark: "",
+            nameImage: "Ningún archivo seleccionado"
         };
     },
     methods: {
     
         onFileChange(event) {
             this.image = event.target.files[0];
+            if (this.image) {
+                this.nameImage = this.image.name;
+            }
         },
         
         async sendImage() {
