@@ -56,15 +56,18 @@ setInterval(async () => {
 
         const data = await response.json()
         if (data.answer === 'OK') {
-          console.log(`servidor ${server.portServer} disponible`);
-          console.log(`Tiempo de respuesta: ${responseTimeServer}ms`)
+          // console.log(`servidor ${server.portServer} disponible`);
+          // console.log(`Tiempo de respuesta: ${responseTimeServer}ms`)
 
           if (responseTimeServer > responseTime) {
             console.log(`el tiempo de respuesta del servidor ${server.portServer} es muy alto`)
             let serverToAdd = { name: server.name, status: 'yellow' };
+            if(!server.isSlow){
+              server.isSlow = true
+              chooseComputer();
+            }
             io.emit('messages', serverToAdd);
 
-            chooseComputer();
             actualPort++;
 
           } else {
